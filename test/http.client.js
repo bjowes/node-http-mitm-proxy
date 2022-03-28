@@ -3,13 +3,11 @@ const https = require("https");
 
 module.exports = function httpRequest(url, options, body, cb) {
   var proto = url.indexOf("http:") === 0 ? http : https;
-  //console.log("request opt", options);
   const request = proto.request(url, options, (response) => {
     if (response.statusCode >= 400) {
       request.destroy(new Error());
       return cb(new Error("Non success status code"), response, null);
     }
-    //console.log(response.statusCode);
 
     const chunks = [];
     response.on("data", (chunk) => {
@@ -30,8 +28,10 @@ module.exports = function httpRequest(url, options, body, cb) {
     return cb(err, null, null);
   });
   if (body) {
+    const bodyStr = JSON.stringify(body);
     request.setHeader("content-type", "application/json; charset=utf-8");
-    request.write(JSON.stringify(body));
+    request.setHeader("content-length", bodyStr.length);
+    request.write(bodyStr);
   }
   request.end();
 };

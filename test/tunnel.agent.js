@@ -207,14 +207,22 @@ module.exports = class TunnelAgent extends events.EventEmitter {
     }
   }
 
+  escapeHost(hostname, port) {
+    if (hostname.indexOf(":") === -1) {
+      return `${hostname}:${port}`;
+    }
+    return `[${hostname}]:${port}`;
+  }
+
   createSocketInternal(request, cb) {
     const self = this;
+    const host = this.escapeHost(request.options.host, request.options.port);
     const connectOptions = {
       ...self.proxyOptions,
       method: "CONNECT",
-      path: request.options.host + ":" + request.options.port,
+      path: host,
       headers: {
-        host: request.options.host + ":" + request.options.port,
+        host: host,
       },
     };
     if (request.options.localAddress) {
