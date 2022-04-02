@@ -2,21 +2,34 @@ var util = require("util");
 var assert = require("assert");
 var crypto = require("crypto");
 var zlib = require("zlib");
-//var request = require("request");
 var httpRequest = require("./http.client");
 var fs = require("fs");
 var http = require("http");
 var net = require("net");
-var nodeStatic = require("node-static");
+var path = require("path");
 var WebSocket = require("ws");
 var Proxy = require("../");
 const TunnelAgent = require("./tunnel.agent");
-var fileStaticA = new nodeStatic.Server(__dirname + "/wwwA");
-var fileStaticB = new nodeStatic.Server(__dirname + "/wwwB");
+
+var filePathA = __dirname + "/wwwA";
+var filePathB = __dirname + "/wwwB";
 var testPortA = 40005;
 var testPortB = 40006;
 var testProxyPort = 40010;
 var testWSPort = 40007;
+
+var sendStaticFile = function (root, req, res) {
+  const filePath = path.join(root, req.url);
+  if (!fs.existsSync(filePath)) {
+    console.error("no file ", filePath);
+    res.writeHead(404);
+    return res.end();
+  }
+  var body = fs.readFileSync(filePath, "utf8");
+  res.writeHead(200, { "content-length": body.length });
+  res.write(body);
+  res.end();
+};
 
 ["127.0.0.1", "::", "localhost"].forEach((testHost) => {
   var testHostForUrl = testHost === "::" ? "[::]" : testHost;
@@ -90,7 +103,7 @@ var testWSPort = 40007;
       srvA = http.createServer(function (req, res) {
         req
           .addListener("end", function () {
-            fileStaticA.serve(req, res);
+            sendStaticFile(filePathA, req, res);
           })
           .resume();
       });
@@ -98,7 +111,7 @@ var testWSPort = 40007;
         srvB = http.createServer(function (req, res) {
           req
             .addListener("end", function () {
-              fileStaticB.serve(req, res);
+              sendStaticFile(filePathB, req, res);
             })
             .resume();
         });
