@@ -1,18 +1,18 @@
-var util = require("util");
-var assert = require("assert");
-var crypto = require("crypto");
-var zlib = require("zlib");
-var httpRequest = require("./http.client");
-var fs = require("fs");
-var http = require("http");
-var net = require("net");
-var path = require("path");
-var WebSocket = require("ws");
-var Proxy = require("../");
-const TunnelAgent = require("./tunnel.agent");
+var util = require('util');
+var assert = require('assert');
+var crypto = require('crypto');
+var zlib = require('zlib');
+var httpRequest = require('./http.client');
+var fs = require('fs');
+var http = require('http');
+var net = require('net');
+var path = require('path');
+var WebSocket = require('ws');
+var Proxy = require('../');
+const TunnelAgent = require('./tunnel.agent');
 
-var filePathA = __dirname + "/wwwA";
-var filePathB = __dirname + "/wwwB";
+var filePathA = __dirname + '/wwwA';
+var filePathB = __dirname + '/wwwB';
 var testPortA = 40005;
 var testPortB = 40006;
 var testProxyPort = 40010;
@@ -21,20 +21,20 @@ var testWSPort = 40007;
 var sendStaticFile = function (root, req, res) {
   const filePath = path.join(root, req.url);
   if (!fs.existsSync(filePath)) {
-    console.error("no file ", filePath);
+    console.error('no file ', filePath);
     res.writeHead(404);
     return res.end();
   }
-  var body = fs.readFileSync(filePath, "utf8");
-  res.writeHead(200, { "content-length": body.length });
+  var body = fs.readFileSync(filePath, 'utf8');
+  res.writeHead(200, { 'content-length': body.length });
   res.write(body);
   res.end();
 };
 
-["127.0.0.1", "::", "localhost"].forEach((testHost) => {
-  var testHostForUrl = testHost === "::" ? "[::]" : testHost;
-  var testUrlA = "http://" + testHostForUrl + ":" + testPortA;
-  var testUrlB = "http://" + testHostForUrl + ":" + testPortB;
+['127.0.0.1', '::', 'localhost'].forEach((testHost) => {
+  var testHostForUrl = testHost === '::' ? '[::]' : testHost;
+  var testUrlA = 'http://' + testHostForUrl + ':' + testPortA;
+  var testUrlB = 'http://' + testHostForUrl + ':' + testPortB;
 
   var getHttp = function (url, cb) {
     httpRequest(url, null, null, function (err, resp, body) {
@@ -48,9 +48,7 @@ var sendStaticFile = function (root, req, res) {
       {
         agent: new TunnelAgent(
           {
-            ca: fs.readFileSync(
-              __dirname + "/../.http-mitm-proxy/certs/ca.pem"
-            ),
+            ca: fs.readFileSync(__dirname + '/../.http-mitm-proxy/certs/ca.pem'),
             keepAlive: keepAlive,
             proxy: {
               host: testHost,
@@ -58,7 +56,7 @@ var sendStaticFile = function (root, req, res) {
             },
           },
           false,
-          url.indexOf("https:") === 0
+          url.indexOf('https:') === 0
         ),
       },
       null,
@@ -83,26 +81,26 @@ var sendStaticFile = function (root, req, res) {
     cb(count);
   };
 
-  describe("proxy on " + testHostForUrl, function () {
+  describe('proxy on ' + testHostForUrl, function () {
     this.timeout(30000);
     var srvA = null;
     var srvB = null;
     var proxy = null;
     var testHashes = {};
-    var testFiles = ["1024.bin"];
+    var testFiles = ['1024.bin'];
     var wss = null;
 
     before(function (done) {
       testFiles.forEach(function (val) {
         testHashes[val] = crypto
-          .createHash("sha256")
-          .update(fs.readFileSync(__dirname + "/www/" + val, "utf8"), "utf8")
+          .createHash('sha256')
+          .update(fs.readFileSync(__dirname + '/www/' + val, 'utf8'), 'utf8')
           .digest()
           .toString();
       });
       srvA = http.createServer(function (req, res) {
         req
-          .addListener("end", function () {
+          .addListener('end', function () {
             sendStaticFile(filePathA, req, res);
           })
           .resume();
@@ -110,7 +108,7 @@ var sendStaticFile = function (root, req, res) {
       srvA.listen(testPortA, testHost, () => {
         srvB = http.createServer(function (req, res) {
           req
-            .addListener("end", function () {
+            .addListener('end', function () {
               sendStaticFile(filePathB, req, res);
             })
             .resume();
@@ -122,10 +120,18 @@ var sendStaticFile = function (root, req, res) {
             },
             done
           );
-          wss.on("connection", function (ws) {
+          wss.on('connection', function (ws) {
             // just reply with the same message
-            ws.on("message", function (message) {
-              ws.send(message);
+            ws.on('message', function (data, isBinary) {
+              if (!isBinary && data.toString() === 'send ping') {
+                ws.ping('send ping');
+              } else {
+                ws.send(data, { binary: isBinary });
+              }
+            });
+
+            ws.on('ping', function (data) {
+              ws.pong(data);
             });
           });
         });
@@ -136,9 +142,8 @@ var sendStaticFile = function (root, req, res) {
       proxy = new Proxy();
       proxy.listen({ port: testProxyPort, host: testHost }, done);
       proxy.onError(function (ctx, err, errorKind) {
-        var url =
-          ctx && ctx.clientToProxyRequest ? ctx.clientToProxyRequest.url : "";
-        console.log("proxy error: " + errorKind + " on " + url + ":", err);
+        var url = ctx && ctx.clientToProxyRequest ? ctx.clientToProxyRequest.url : '';
+        console.log('proxy error: ' + errorKind + ' on ' + url + ':', err);
       });
     });
 
@@ -156,216 +161,140 @@ var sendStaticFile = function (root, req, res) {
       wss = null;
     });
 
-    describe("ca server", function () {
-      it("should generate a root CA file", function (done) {
-        fs.access(
-          __dirname + "/../.http-mitm-proxy/certs/ca.pem",
-          function (err) {
-            var rtv = null;
-            if (err) {
-              rtv = __dirname + "/../.http-mitm-proxy/certs/ca.pem " + err;
-            } else {
-              rtv = true;
-            }
-            assert.equal(true, rtv, "Can access the CA cert");
-            done();
+    describe('ca server', function () {
+      it('should generate a root CA file', function (done) {
+        fs.access(__dirname + '/../.http-mitm-proxy/certs/ca.pem', function (err) {
+          var rtv = null;
+          if (err) {
+            rtv = __dirname + '/../.http-mitm-proxy/certs/ca.pem ' + err;
+          } else {
+            rtv = true;
           }
-        );
+          assert.equal(true, rtv, 'Can access the CA cert');
+          done();
+        });
       });
     });
 
-    describe("http server", function () {
-      describe("get a 1024 byte file", function () {
-        it("a", function (done) {
-          getHttp(testUrlA + "/1024.bin", function (err, resp, body) {
+    describe('http server', function () {
+      describe('get a 1024 byte file', function () {
+        it('a', function (done) {
+          getHttp(testUrlA + '/1024.bin', function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
-            assert.equal(1024, len, "body length is 1024");
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString(),
-              "sha256 hash matches"
-            );
+            if (body.hasOwnProperty('length')) len = body.length;
+            assert.equal(1024, len, 'body length is 1024');
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString(), 'sha256 hash matches');
             done();
           });
         });
-        it("b", function (done) {
-          getHttp(testUrlB + "/1024.bin", function (err, resp, body) {
+        it('b', function (done) {
+          getHttp(testUrlB + '/1024.bin', function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
-            assert.equal(1024, len, "body length is 1024");
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString(),
-              "sha256 hash matches"
-            );
+            if (body.hasOwnProperty('length')) len = body.length;
+            assert.equal(1024, len, 'body length is 1024');
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString(), 'sha256 hash matches');
             done();
           });
         });
       });
     });
 
-    describe("proxy server", function () {
+    describe('proxy server', function () {
       this.timeout(5000);
 
-      it("should handle socket errors in connect", function (done) {
+      it('should handle socket errors in connect', function (done) {
         // If a socket disconnects during the CONNECT process, the resulting
         // error should be handled and shouldn't cause the proxy server to fail.
-        const socket = net.createConnection(
-          testProxyPort,
-          testHost,
-          function () {
-            socket.write(
-              "CONNECT " + testHostForUrl + ":" + testPortA + "\r\n\r\n"
-            );
-            socket.destroy();
-          }
-        );
-        socket.on("close", function () {
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+        const socket = net.createConnection(testProxyPort, testHost, function () {
+          socket.write('CONNECT ' + testHostForUrl + ':' + testPortA + '\r\n\r\n');
+          socket.destroy();
+        });
+        socket.on('close', function () {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) {
               return done(new Error(err));
             }
             var len = 0;
-            if (body.hasOwnProperty("length")) {
+            if (body.hasOwnProperty('length')) {
               len = body.length;
             }
             assert.equal(1024, len);
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString()
-            );
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString());
             done();
           });
         });
       });
 
-      describe("proxy a 1024 byte file", function () {
-        it("a", function (done) {
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+      describe('proxy a 1024 byte file', function () {
+        it('a', function (done) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString()
-            );
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString());
             done();
           });
         });
-        it("b", function (done) {
-          proxyHttp(testUrlB + "/1024.bin", false, function (err, resp, body) {
+        it('b', function (done) {
+          proxyHttp(testUrlB + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString()
-            );
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString());
             done();
           });
         });
       });
-      describe("ssl", function () {
-        it("proxys to google.com using local ca file", function (done) {
-          proxyHttp(
-            "https://www.google.com/",
-            false,
-            function (err, resp, body) {
-              if (err) return done(new Error(err));
-              assert.equal(
-                200,
-                resp.statusCode,
-                "200 Status code from Google."
-              );
-              done();
-            }
-          );
+      describe('ssl', function () {
+        it('proxys to google.com using local ca file', function (done) {
+          proxyHttp('https://www.google.com/', false, function (err, resp, body) {
+            if (err) return done(new Error(err));
+            assert.equal(200, resp.statusCode, '200 Status code from Google.');
+            done();
+          });
         }).timeout(15000);
       });
 
-      describe("proxy a 1024 byte file with keepAlive", function () {
-        it("a", function (done) {
-          proxyHttp(testUrlA + "/1024.bin", true, function (err, resp, body) {
+      describe('proxy a 1024 byte file with keepAlive', function () {
+        it('a', function (done) {
+          proxyHttp(testUrlA + '/1024.bin', true, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString()
-            );
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString());
             done();
           });
         });
-        it("b", function (done) {
-          proxyHttp(testUrlB + "/1024.bin", true, function (err, resp, body) {
+        it('b', function (done) {
+          proxyHttp(testUrlB + '/1024.bin', true, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal(
-              testHashes["1024.bin"],
-              crypto
-                .createHash("sha256")
-                .update(body, "utf8")
-                .digest()
-                .toString()
-            );
+            assert.equal(testHashes['1024.bin'], crypto.createHash('sha256').update(body, 'utf8').digest().toString());
             done();
           });
         });
       });
-      describe("ssl with keepAlive", function () {
-        it("proxys to google.com using local ca file", function (done) {
-          proxyHttp(
-            "https://www.google.com/",
-            true,
-            function (err, resp, body) {
-              if (err) return done(new Error(err));
-              assert.equal(
-                200,
-                resp.statusCode,
-                "200 Status code from Google."
-              );
-              done();
-            }
-          );
+      describe('ssl with keepAlive', function () {
+        it('proxys to google.com using local ca file', function (done) {
+          proxyHttp('https://www.google.com/', true, function (err, resp, body) {
+            if (err) return done(new Error(err));
+            assert.equal(200, resp.statusCode, '200 Status code from Google.');
+            done();
+          });
         }).timeout(15000);
       });
 
-      describe("host match", function () {
-        it("proxy and modify AAA 5 times if hostA", function (done) {
+      describe('host match', function () {
+        it('proxy and modify AAA 5 times if hostA', function (done) {
           proxy.onRequest(function (ctx, callback) {
-            var testHostNameA = testHostForUrl + ":" + testPortA;
+            var testHostNameA = testHostForUrl + ':' + testPortA;
             if (ctx.clientToProxyRequest.headers.host === testHostNameA) {
               var chunks = [];
               ctx.onResponseData(function (ctx, chunk, callback) {
@@ -376,7 +305,7 @@ var sendStaticFile = function (root, req, res) {
                 var body = Buffer.concat(chunks).toString();
                 for (var i = 0; i < 5; i++) {
                   var off = i * 10;
-                  body = body.substr(0, off) + "AAA" + body.substr(off + 3);
+                  body = body.substr(0, off) + 'AAA' + body.substr(off + 3);
                 }
                 ctx.proxyToClientResponse.write(body);
                 return callback();
@@ -385,130 +314,180 @@ var sendStaticFile = function (root, req, res) {
             return callback();
           });
 
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            countString(body, "AAA", function (count) {
+            countString(body, 'AAA', function (count) {
               assert.equal(5, count);
-              proxyHttp(
-                testUrlB + "/1024.bin",
-                false,
-                function (errB, respB, bodyB) {
-                  if (errB) console.log("errB: " + errB.toString());
-                  var lenB = 0;
-                  if (bodyB.hasOwnProperty("length")) lenB = bodyB.length;
-                  assert.equal(1024, lenB);
-                  countString(bodyB, "AAA", function (countB) {
-                    assert.equal(0, countB);
-                    done();
-                  });
-                }
-              );
+              proxyHttp(testUrlB + '/1024.bin', false, function (errB, respB, bodyB) {
+                if (errB) console.log('errB: ' + errB.toString());
+                var lenB = 0;
+                if (bodyB.hasOwnProperty('length')) lenB = bodyB.length;
+                assert.equal(1024, lenB);
+                countString(bodyB, 'AAA', function (countB) {
+                  assert.equal(0, countB);
+                  done();
+                });
+              });
             });
           });
         });
       });
 
-      describe("chunked transfer", function () {
-        it("should not change transfer encoding when no content modification is active", function (done) {
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+      describe('chunked transfer', function () {
+        it('should not change transfer encoding when no content modification is active', function (done) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal(null, resp.headers["transfer-encoding"]);
-            assert.equal(1024, resp.headers["content-length"]);
+            assert.equal(null, resp.headers['transfer-encoding']);
+            assert.equal(1024, resp.headers['content-length']);
             done();
           });
         });
 
-        it("should use chunked transfer encoding when global onResponseData is active", function (done) {
+        it('should use chunked transfer encoding when global onResponseData is active', function (done) {
           proxy.onResponseData(function (ctx, chunk, callback) {
             callback(null, chunk);
           });
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal("chunked", resp.headers["transfer-encoding"]);
-            assert.equal(null, resp.headers["content-length"]);
+            assert.equal('chunked', resp.headers['transfer-encoding']);
+            assert.equal(null, resp.headers['content-length']);
             done();
           });
         });
 
-        it("should use chunked transfer encoding when context onResponseData is active", function (done) {
+        it('should use chunked transfer encoding when context onResponseData is active', function (done) {
           proxy.onResponse(function (ctx, callback) {
             ctx.onResponseData(function (ctx, chunk, callback) {
               callback(null, chunk);
             });
             callback(null);
           });
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(1024, len);
-            assert.equal("chunked", resp.headers["transfer-encoding"]);
-            assert.equal(null, resp.headers["content-length"]);
+            assert.equal('chunked', resp.headers['transfer-encoding']);
+            assert.equal(null, resp.headers['content-length']);
             done();
           });
         });
 
-        it("should use chunked transfer encoding when context ResponseFilter is active", function (done) {
+        it('should use chunked transfer encoding when context ResponseFilter is active', function (done) {
           proxy.onResponse(function (ctx, callback) {
             ctx.addResponseFilter(zlib.createGzip());
             callback(null);
           });
-          proxyHttp(testUrlA + "/1024.bin", false, function (err, resp, body) {
+          proxyHttp(testUrlA + '/1024.bin', false, function (err, resp, body) {
             if (err) return done(new Error(err));
             var len = 0;
-            if (body.hasOwnProperty("length")) len = body.length;
+            if (body.hasOwnProperty('length')) len = body.length;
             assert.equal(true, len < 1024); // Compressed body
-            assert.equal("chunked", resp.headers["transfer-encoding"]);
-            assert.equal(null, resp.headers["content-length"]);
+            assert.equal('chunked', resp.headers['transfer-encoding']);
+            assert.equal(null, resp.headers['content-length']);
             done();
           });
         });
       });
     });
 
-    describe("websocket server", function () {
+    describe('websocket server', function () {
       this.timeout(2000);
 
-      it("send + receive message without proxy", function (done) {
-        var ws = new WebSocket("ws://" + testHostForUrl + ":" + testWSPort);
-        var testMessage = "does the websocket server reply?";
-        ws.on("open", function () {
-          ws.on("message", function (data) {
+      it('send + receive message without proxy', function (done) {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testWSPort);
+        var testMessage = 'does the websocket server reply?';
+        ws.on('open', function () {
+          ws.on('message', function (dataBuf, isBinary) {
+            const data = isBinary ? dataBuf : dataBuf.toString();
             assert.equal(data, testMessage);
             ws.close();
             done();
           });
-          ws.send(testMessage);
+          ws.send(testMessage, { binary: false });
         });
       });
 
-      it("send + receive message through proxy", function (done) {
-        var ws = new WebSocket("ws://" + testHostForUrl + ":" + testProxyPort, {
+      it('send + receive message through proxy', function (done) {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testProxyPort, {
           headers: {
-            Host: testHostForUrl + ":" + testWSPort,
+            Host: testHostForUrl + ':' + testWSPort,
           },
         });
-        var testMessage = "does websocket proxying work?";
-        ws.on("open", function () {
-          ws.on("message", function (data) {
-            assert.equal(data, testMessage);
+        var testMessage = 'does websocket proxying work?';
+        ws.on('open', function () {
+          ws.on('message', function (dataBuf, isBinary) {
+            assert.ok(!isBinary);
+            assert.equal(dataBuf.toString(), testMessage);
             ws.close();
             done();
           });
-          ws.send(testMessage);
+          ws.send(testMessage, { binary: false });
         });
       });
 
-      it("websocket callbacks get called", function (done) {
+      it('send + receive binary message through proxy', function (done) {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testProxyPort, {
+          headers: {
+            Host: testHostForUrl + ':' + testWSPort,
+          },
+        });
+        var testMessage = 'does websocket binary proxying work?';
+        ws.on('open', function () {
+          ws.on('message', function (dataBuf, isBinary) {
+            assert.ok(isBinary);
+            assert.equal(dataBuf.toString(), testMessage);
+            ws.close();
+            done();
+          });
+          ws.send(Buffer.from(testMessage, 'utf-8'), { binary: true });
+        });
+      });
+
+      it('send ping + receive pong through proxy', function (done) {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testProxyPort, {
+          headers: {
+            Host: testHostForUrl + ':' + testWSPort,
+          },
+        });
+        var testMessage = 'does websocket client ping/server pong proxying work?';
+        ws.on('open', function () {
+          ws.on('pong', function (dataBuf) {
+            assert.equal(dataBuf.toString(), testMessage);
+            ws.close();
+            done();
+          });
+          ws.ping(testMessage);
+        });
+      });
+
+      it('send + receive pong through proxy', function (done) {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testProxyPort, {
+          headers: {
+            Host: testHostForUrl + ':' + testWSPort,
+          },
+        });
+        var testMessage = 'send ping';
+        ws.on('open', function () {
+          ws.on('ping', function (dataBuf) {
+            assert.equal(dataBuf.toString(), testMessage);
+            ws.close();
+            done();
+          });
+          ws.send(testMessage, { binary: false });
+        });
+      });
+
+      it('websocket callbacks get called', function (done) {
         var stats = {
           connection: false,
           frame: false,
@@ -521,14 +500,7 @@ var sendStaticFile = function (root, req, res) {
           stats.connection = true;
           return callback();
         });
-        proxy.onWebSocketFrame(function (
-          ctx,
-          type,
-          fromServer,
-          message,
-          flags,
-          callback
-        ) {
+        proxy.onWebSocketFrame(function (ctx, type, fromServer, message, flags, callback) {
           stats.frame = true;
           message = rewrittenMessage;
           return callback(null, message, flags);
@@ -546,19 +518,20 @@ var sendStaticFile = function (root, req, res) {
           callback(null, code, message);
         });
 
-        var ws = new WebSocket("ws://" + testHostForUrl + ":" + testProxyPort, {
+        var ws = new WebSocket('ws://' + testHostForUrl + ':' + testProxyPort, {
           headers: {
-            host: testHostForUrl + ":" + testWSPort,
+            host: testHostForUrl + ':' + testWSPort,
           },
         });
-        var testMessage = "does rewriting messages work?";
-        var rewrittenMessage = "rewriting messages does work!";
-        ws.on("open", function () {
-          ws.on("message", function (data) {
+        var testMessage = 'does rewriting messages work?';
+        var rewrittenMessage = 'rewriting messages does work!';
+        ws.on('open', function () {
+          ws.on('message', function (dataBuf, isBinary) {
+            const data = isBinary ? dataBuf : dataBuf.toString();
             assert.equal(data, rewrittenMessage);
             ws.close();
           });
-          ws.on("close", function () {
+          ws.on('close', function () {
             setTimeout(() => {
               assert(stats.connection);
               assert(stats.frame);
@@ -574,7 +547,7 @@ var sendStaticFile = function (root, req, res) {
               }
             }, 0);
           });
-          ws.send(testMessage);
+          ws.send(testMessage, { binary: false });
         });
       });
     });

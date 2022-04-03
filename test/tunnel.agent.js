@@ -1,10 +1,10 @@
-const net = require("net");
-const tls = require("tls");
-const http = require("http");
-const https = require("https");
-const events = require("events");
+const net = require('net');
+const tls = require('tls');
+const http = require('http');
+const https = require('https');
+const events = require('events');
 
-const debug = require("debug")("http-mitm-proxy:tunnelagent");
+const debug = require('debug')('http-mitm-proxy:tunnelagent');
 
 let agentCount = 0;
 
@@ -46,7 +46,7 @@ class SocketStore {
   remove(key, socket) {
     const socketIndex = this.sockets[key].indexOf(socket);
     if (socketIndex === -1) {
-      throw new Error("SocketStore: Attempt to remove non-existing socket");
+      throw new Error('SocketStore: Attempt to remove non-existing socket');
     }
     this.sockets[key].splice(socketIndex, 1);
   }
@@ -82,7 +82,7 @@ module.exports = class TunnelAgent extends events.EventEmitter {
   createSocket;
 
   debugLog(message) {
-    debug("[" + this.agentId + "]: " + message);
+    debug('[' + this.agentId + ']: ' + message);
   }
 
   constructor(options, proxyOverHttps = false, targetUsesHttps = false) {
@@ -96,25 +96,20 @@ module.exports = class TunnelAgent extends events.EventEmitter {
     this.sockets = new SocketStore();
     this.freeSockets = new SocketStore();
     this.request = proxyOverHttps ? https.request : http.request;
-    this.createSocket = targetUsesHttps
-      ? this.createSecureSocket
-      : this.createTcpSocket;
+    this.createSocket = targetUsesHttps ? this.createSecureSocket : this.createTcpSocket;
     this.defaultPort = targetUsesHttps ? 443 : 80;
     this.agentId = agentCount++;
 
     // attempt to negotiate http/1.1 for proxy servers that support http/2
-    if (
-      this.proxyOptions.secureProxy &&
-      !("ALPNProtocols" in this.proxyOptions)
-    ) {
-      this.proxyOptions.ALPNProtocols = ["http 1.1"];
+    if (this.proxyOptions.secureProxy && !('ALPNProtocols' in this.proxyOptions)) {
+      this.proxyOptions.ALPNProtocols = ['http 1.1'];
     }
 
-    self.on("free", function onFree(socket, request) {
+    self.on('free', function onFree(socket, request) {
       for (let i = 0, len = self.requests.length; i < len; ++i) {
         const pending = self.requests[i];
         if (pending.socketKey === request.socketKey) {
-          self.debugLog("socket free, reusing for pending request");
+          self.debugLog('socket free, reusing for pending request');
           // Detect the request to connect same origin server, reuse the connection.
           self.requests.splice(i, 1);
           pending.clientReq.reusedSocket = true;
@@ -126,15 +121,15 @@ module.exports = class TunnelAgent extends events.EventEmitter {
       self.sockets.remove(request.socketKey, socket);
       if (!self.keepAlive) {
         socket.destroy();
-        self.debugLog("socket free, non keep-alive => destroy socket");
+        self.debugLog('socket free, non keep-alive => destroy socket');
       } else {
         // save the socket for reuse later
         socket.removeAllListeners();
         socket.unref();
         self.freeSockets.insert(request.socketKey, socket);
-        socket.once("close", (_) => {
+        socket.once('close', (_) => {
           if (self.destroyPending) return;
-          self.debugLog("remove socket on socket close");
+          self.debugLog('remove socket on socket close');
           self.freeSockets.remove(request.socketKey, socket);
         });
       }
@@ -168,7 +163,7 @@ module.exports = class TunnelAgent extends events.EventEmitter {
     if (self.keepAlive) {
       const socket = self.freeSockets.get(request.socketKey);
       if (socket) {
-        this.debugLog("addRequest: reuse free socket for " + request.socketKey);
+        this.debugLog('addRequest: reuse free socket for ' + request.socketKey);
         socket.removeAllListeners();
         socket.ref();
         self.sockets.insert(request.socketKey, socket);
@@ -184,31 +179,31 @@ module.exports = class TunnelAgent extends events.EventEmitter {
 
   executeRequest(request, socket) {
     const self = this;
-    socket.on("free", onFree);
-    socket.on("close", onCloseOrRemove);
-    socket.on("agentRemove", onCloseOrRemove);
+    socket.on('free', onFree);
+    socket.on('close', onCloseOrRemove);
+    socket.on('agentRemove', onCloseOrRemove);
     request.clientReq.onSocket(socket);
 
     function onFree() {
-      self.debugLog("onFree");
-      self.emit("free", socket, request);
+      self.debugLog('onFree');
+      self.emit('free', socket, request);
     }
 
     function onCloseOrRemove(hadError) {
-      self.debugLog("onClose");
+      self.debugLog('onClose');
       if (self.destroyPending) return;
-      socket.removeListener("free", onFree);
-      socket.removeListener("close", onCloseOrRemove);
-      socket.removeListener("agentRemove", onCloseOrRemove);
+      socket.removeListener('free', onFree);
+      socket.removeListener('close', onCloseOrRemove);
+      socket.removeListener('agentRemove', onCloseOrRemove);
       if (self.keepAlive) {
-        socket.emit("close", hadError); // Let the freeSocket event handler remove the socket
+        socket.emit('close', hadError); // Let the freeSocket event handler remove the socket
       }
       self.processPending();
     }
   }
 
   escapeHost(hostname, port) {
-    if (hostname.indexOf(":") === -1) {
+    if (hostname.indexOf(':') === -1) {
       return `${hostname}:${port}`;
     }
     return `[${hostname}]:${port}`;
@@ -219,7 +214,7 @@ module.exports = class TunnelAgent extends events.EventEmitter {
     const host = this.escapeHost(request.options.host, request.options.port);
     const connectOptions = {
       ...self.proxyOptions,
-      method: "CONNECT",
+      method: 'CONNECT',
       path: host,
       headers: {
         host: host,
@@ -230,13 +225,12 @@ module.exports = class TunnelAgent extends events.EventEmitter {
     }
     if (self.proxyOptions.proxyAuth) {
       connectOptions.headers = connectOptions.headers || {};
-      connectOptions.headers["Proxy-Authorization"] =
-        "Basic " + Buffer.from(self.proxyOptions.proxyAuth).toString("base64");
+      connectOptions.headers['Proxy-Authorization'] = 'Basic ' + Buffer.from(self.proxyOptions.proxyAuth).toString('base64');
     }
 
     const connectReq = self.request(connectOptions);
-    connectReq.once("connect", onConnect);
-    connectReq.once("error", onError);
+    connectReq.once('connect', onConnect);
+    connectReq.once('error', onError);
     connectReq.end();
 
     function onConnect(res, socket, head) {
@@ -244,50 +238,28 @@ module.exports = class TunnelAgent extends events.EventEmitter {
       socket.removeAllListeners();
 
       if (res.statusCode !== 200) {
-        self.debugLog(
-          "tunneling socket could not be established, statusCode=" +
-            res.statusCode
-        );
+        self.debugLog('tunneling socket could not be established, statusCode=' + res.statusCode);
         socket.destroy();
-        request.clientReq.destroy(
-          new Error(
-            "tunneling socket could not be established, " +
-              "statusCode=" +
-              res.statusCode
-          )
-        );
+        request.clientReq.destroy(new Error('tunneling socket could not be established, ' + 'statusCode=' + res.statusCode));
         self.processPending();
         return;
       }
       if (head.length > 0) {
-        self.debugLog("got illegal response body from proxy");
+        self.debugLog('got illegal response body from proxy');
         socket.destroy();
-        request.clientReq.destroy(
-          new Error("got illegal response body from proxy")
-        );
+        request.clientReq.destroy(new Error('got illegal response body from proxy'));
         self.processPending();
         return;
       }
-      self.debugLog("tunneling connection established");
+      self.debugLog('tunneling connection established');
       self.sockets.insert(request.socketKey, socket);
       return cb(socket);
     }
 
     function onError(cause) {
       connectReq.removeAllListeners();
-      self.debugLog(
-        "tunneling socket could not be established, cause=" +
-          cause.message +
-          "\n" +
-          cause.stack
-      );
-      request.clientReq.destroy(
-        new Error(
-          "tunneling socket could not be established, " +
-            "cause=" +
-            cause.message
-        )
-      );
+      self.debugLog('tunneling socket could not be established, cause=' + cause.message + '\n' + cause.stack);
+      request.clientReq.destroy(new Error('tunneling socket could not be established, ' + 'cause=' + cause.message));
       self.processPending();
     }
   }
@@ -303,22 +275,20 @@ module.exports = class TunnelAgent extends events.EventEmitter {
 
   createTcpSocket(request) {
     const self = this;
-    self.createSocketInternal(request, (socket) =>
-      self.executeRequest(request, socket)
-    );
+    self.createSocketInternal(request, (socket) => self.executeRequest(request, socket));
   }
 
   createSecureSocket(request) {
     const self = this;
     self.createSocketInternal(request, function (socket) {
-      const hostHeader = request.clientReq.getHeader("host");
+      const hostHeader = request.clientReq.getHeader('host');
       const tlsOptions = {
-        ...omit(self.options, "host", "path", "port"),
+        ...omit(self.options, 'host', 'path', 'port'),
         socket: socket,
       };
-      let servername = "";
+      let servername = '';
       if (hostHeader) {
-        servername = new URL("https://" + hostHeader).hostname;
+        servername = new URL('https://' + hostHeader).hostname;
       } else if (request.options.host) {
         servername = request.options.host;
       }
@@ -333,7 +303,7 @@ module.exports = class TunnelAgent extends events.EventEmitter {
   }
 
   destroy() {
-    this.debugLog("destroying agent");
+    this.debugLog('destroying agent');
     this.destroyPending = true;
     this.sockets.destroy();
     this.freeSockets.destroy();
