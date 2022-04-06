@@ -47,7 +47,8 @@
         
          proxy.close(); */
          close(): void;
-
+         
+         address(): AddressInfo;
 
          onCertificateRequired(hostname: string, callback: (error: Error | undefined, certDetails: { keyFile: string; certFile: string; hosts: string[]; }) => void): void;
          onCertificateMissing(ctx: IContext, files: any, callback: (error: Error | undefined, certDetails: { keyFileData: string; certFileData: string; hosts: string[]; }) => void): void;
