@@ -31,8 +31,8 @@ var sendStaticFile = function (root, req, res) {
   res.end();
 };
 
-['127.0.0.1', '::', 'localhost'].forEach((testHost) => {
-  var testHostForUrl = testHost === '::' ? '[::]' : testHost;
+['127.0.0.1', '::1', 'localhost'].forEach((testHost) => {
+  var testHostForUrl = testHost === '::1' ? '[::1]' : testHost;
   var testUrlA = 'http://' + testHostForUrl + ':' + testPortA;
   var testUrlB = 'http://' + testHostForUrl + ':' + testPortB;
 
