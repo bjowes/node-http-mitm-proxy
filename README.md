@@ -2,6 +2,8 @@
 
 This is a fork of Joe Ferners' library node-http-mitm-proxy (see docs below). Its first release was identical to the master version of the original library, commit 66ac0f5d3298f66b731f90ebf1e9b430fa5d76eb. I decided to publish a scoped version of this library to npm, since I needed the codebase in npm. It is only intended for my own library cypress-ntlm-auth. Use at you own risk!
 
+* 2024-03-27: 0.9.5 - Patch for custom status messages, dependency bump
+* 2022-04-08: 0.9.4 - Address accessor, typings fix
 * 2022-04-04: 0.9.3 - Patch for cert filenames with IPv6 sites.
 * 2022-03-31: 0.9.2 - Updated dependencies due to security issues. Improved HTTPS stability. IPv6 Support.
 * 2019-08-01: Updated dependencies due to security issues
