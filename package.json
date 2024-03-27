@@ -1,6 +1,6 @@
 {
   "name": "@bjowes/http-mitm-proxy",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "description": "HTTP Man In The Middle (MITM) Proxy. This is a fork of Joe Ferners' library node-http-mitm-proxy. Its first release was identical to the master version of the original library, commit 66ac0f5d3298f66b731f90ebf1e9b430fa5d76eb. I decided to publish a scoped version of this library to npm, since I needed the codebase in npm. It is only intended for my own library cypress-ntlm-auth. Use at you own risk!",
   "main": "index.js",
   "types": "index.d.ts",
